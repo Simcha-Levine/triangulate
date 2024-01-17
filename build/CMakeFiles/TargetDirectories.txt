@@ -1,3 +1,0 @@
-/home/simcha/Documents/cpp/triangulate/build/CMakeFiles/triangulate.dir
-/home/simcha/Documents/cpp/triangulate/build/CMakeFiles/edit_cache.dir
-/home/simcha/Documents/cpp/triangulate/build/CMakeFiles/rebuild_cache.dir
