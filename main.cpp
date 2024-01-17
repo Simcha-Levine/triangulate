@@ -18,9 +18,12 @@ std::vector<sf::Vector2f> trail;
 int selectedPoint = -1;
 std::vector<sf::Color> colors;
 sf::Shader fragmentShader;
+sf::Font font;
 
 void setup()
 {
+    font.loadFromFile("font.ttf");
+
     for (size_t i = 0; i < 10; i++)
     {
         float x, y;
@@ -129,8 +132,6 @@ void drawLineStrip(sf::RenderTexture &renderTarget)
 
 void drawData(sf::RenderTexture &renderTarget)
 {
-    sf::Font font;
-    font.loadFromFile("font.ttf");
     sf::Text text;
     text.setFont(font);
     text.setCharacterSize(15);
