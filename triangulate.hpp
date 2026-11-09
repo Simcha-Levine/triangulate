@@ -1,89 +1,110 @@
-float trapezoid(std::vector<sf::Vector2f> &polygon, int i)
-{
-    auto &current = polygon[i];
-    auto &next = polygon[(i + 1) % polygon.size()];
-    return (next.x - current.x) * (next.y + current.y);
-}
 
-bool getWindingOrder(std::vector<sf::Vector2f> &polygon)
+class Triangulate
 {
-    float total = 0;
-    for (size_t i = 0; i < polygon.size(); i++)
+public:
+    float trapezoid(int i)
     {
-        total += trapezoid(polygon, i);
+        auto &current = polygon[i];
+        auto &next = polygon[(i + 1) % polygon.size()];
+        return (next.x - current.x) * (next.y + current.y);
     }
-    return total > 0;
-}
 
-float crossProduct(sf::Vector2f &center, sf::Vector2f &b, sf::Vector2f &c)
-{
-    sf::Vector2f first_arm = center - b;
-    sf::Vector2f second_arm = center - c;
-    return first_arm.x * second_arm.y - first_arm.y * second_arm.x;
-}
-
-bool checkIfCrosses(size_t point_index, std::vector<size_t> &poly_i, std::vector<sf::Vector2f> &polygon)
-{
-
-    size_t before_index = (point_index == 0) ? poly_i.size() - 1 : point_index - 1;
-    size_t after_index = (point_index + 1) % poly_i.size();
-
-    sf::Vector2f &before_point = polygon[poly_i[before_index]];
-    sf::Vector2f &point = polygon[poly_i[point_index]];
-    sf::Vector2f &after_point = polygon[poly_i[after_index]];
-
-    for (size_t j = 0; j < poly_i.size(); j++)
+    bool getWindingOrder()
     {
-        auto &check_point = polygon[poly_i[j]];
-        if (&check_point != &before_point &&
-            &check_point != &point &&
-            &check_point != &after_point)
+        float total = 0;
+        for (size_t i = 0; i < polygon.size(); i++)
+        {
+            total += trapezoid(i);
+        }
+        return total > 0;
+    }
+
+    float crossProduct(sf::Vector2f &center, sf::Vector2f &before, sf::Vector2f &after)
+    {
+        sf::Vector2f first_arm = center - before;
+        sf::Vector2f second_arm = center - after;
+        return first_arm.x * second_arm.y - first_arm.y * second_arm.x;
+    }
+
+private:
+    float crossProductFromIPoly(size_t center, size_t b, size_t c)
+    {
+        return crossProduct(polygon[poly_i[center]], polygon[poly_i[b]], polygon[poly_i[c]]);
+    }
+
+    bool checkIfCrosses(size_t point_index)
+    {
+
+        size_t before_index = move_i(poly_i.size(), point_index, -1);
+        size_t after_index = move_i(poly_i.size(), point_index, 1);
+
+        for (size_t j = 0; j < poly_i.size(); j++)
         {
 
-            bool cross_product1 = crossProduct(check_point, before_point, point) > 0;
-            bool cross_product2 = crossProduct(check_point, point, after_point) > 0;
-            bool cross_product3 = crossProduct(check_point, after_point, before_point) > 0;
-
-            if (cross_product1 == cross_product2 && cross_product2 == cross_product3)
+            auto check_point = poly_i[j];
+            if (check_point != poly_i[before_index] &&
+                check_point != poly_i[point_index] &&
+                check_point != poly_i[after_index] &&
+                (crossProductFromIPoly(j, move_i(poly_i.size(), j, -1), move_i(poly_i.size(), j, 1)) > 0) != winding_order)
             {
-                return true;
+                bool cross_product1 = crossProductFromIPoly(j, before_index, point_index) > 0;
+                bool cross_product2 = crossProductFromIPoly(j, point_index, after_index) > 0;
+                bool cross_product3 = crossProductFromIPoly(j, after_index, before_index) > 0;
+
+                if (cross_product1 == cross_product2 && cross_product2 == cross_product3)
+                {
+                    return true;
+                }
             }
         }
+        return false;
     }
-    return false;
-}
 
-std::vector<size_t> triangulate(std::vector<sf::Vector2f> &polygon)
-{
-    std::vector<size_t> poly_i(polygon.size());
-    std::iota(poly_i.begin(), poly_i.end(), 0);
-    std::vector<size_t> indices;
+public:
+    VectorArray &polygon;
+    std::vector<size_t> poly_i;
+    bool winding_order;
 
-    bool winding_order = getWindingOrder(polygon);
+    Triangulate(VectorArray &polygon) : polygon(polygon) {}
 
-    size_t i = 0;
-    while (poly_i.size() > 2)
+    void set()
     {
+        while (!poly_i.empty())
+            poly_i.pop_back();
 
-        size_t index0 = (i == 0) ? poly_i.size() - 1 : i - 1;
-        size_t index2 = (i + 1) % poly_i.size();
+        for (size_t i = 0; i < polygon.size(); i++)
+            poly_i.push_back(i);
 
-        auto &before_point = polygon[poly_i[index0]];
-        auto &point = polygon[poly_i[i]];
-        auto &after_point = polygon[poly_i[index2]];
-
-        float cross_product = crossProduct(point, before_point, after_point);
-
-        if ((cross_product > 0) == winding_order &&
-            !checkIfCrosses(i, poly_i, polygon))
-        {
-            indices.push_back(poly_i[index0]);
-            indices.push_back(poly_i[i]);
-            indices.push_back(poly_i[index2]);
-            poly_i.erase(poly_i.begin() + i);
-        }
-        i = (i + 1) % poly_i.size();
+        winding_order = getWindingOrder();
     }
 
-    return indices;
-}
+    std::vector<size_t> triangulate()
+    {
+        set();
+
+        std::vector<size_t> indices;
+
+        size_t i = 0;
+        int count = 0;
+        while (poly_i.size() > 2 && count < 100)
+        {
+
+            count++;
+            size_t before = move_i(poly_i.size(), i, -1);
+            size_t after = move_i(poly_i.size(), i, 1);
+
+            float cross_product = crossProductFromIPoly(i, before, after);
+
+            if ((cross_product > 0) == winding_order && !checkIfCrosses(i))
+            {
+                indices.push_back(poly_i[i]);
+                indices.push_back(poly_i[before]);
+                indices.push_back(poly_i[after]);
+                poly_i.erase(poly_i.begin() + i);
+            }
+            i = (i + 1) % poly_i.size();
+        }
+
+        return indices;
+    }
+};
